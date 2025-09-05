@@ -1,0 +1,10 @@
+flowchart TD
+A[?] --> B[->]
+A --> C[=1>]
+B --> D([treeFront])
+B --> E[turnLeft]
+C --> F[takeLeaf]
+C --> G[move]
+C --> H[->]
+H --> I([atEdge])
+H --> J[turnRight]
