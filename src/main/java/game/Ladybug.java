@@ -4,7 +4,6 @@ import behavior.BehaviorNode;
 import behavior.CompositeNode;
 import java.util.Map;
 import java.util.List;
-import java.util.Stack;
 import behavior.ActionNode;
 import behavior.ConditionNode;
 import behavior.ParallelNode;
@@ -24,26 +23,12 @@ public class Ladybug {
     private BehaviorNode currentNode;
     private Map<String, BehaviorNode> nodeMap;
     private Map<BehaviorNode, CompositeNode> childToParentMap;
-    private Stack<ExecutionContext> executionStack;
-
-    private static class ExecutionContext {
-        BehaviorNode node;
-        int childIndex;
-        boolean hasEntered;
-
-        ExecutionContext(BehaviorNode node) {
-            this.node = node;
-            this.childIndex = 0;
-            this.hasEntered = false;
-        }
-    }
 
     public Ladybug(int id, int x, int y, char direction) {
         this.id = id;
         this.x = x;
         this.y = y;
         this.direction = direction;
-        this.executionStack = new Stack<>();
     }
 
     public int getId() { return id; }
@@ -61,18 +46,12 @@ public class Ladybug {
         this.nodeMap = map;
         this.childToParentMap = parentMap;
         this.currentNode = root;
-        this.executionStack.clear();
-        if (root != null) {
-            this.executionStack.push(new ExecutionContext(root));
-        }
     }
 
     public void resetTree() {
         if (behaviorTree != null) {
             this.currentNode = behaviorTree;
             this.behaviorTree.reset();
-            this.executionStack.clear();
-            this.executionStack.push(new ExecutionContext(behaviorTree));
         }
     }
 
@@ -123,152 +102,101 @@ public class Ladybug {
      * Executes behavior tree step by step until an action is performed.
      */
     public void executeNext(GameEngine gameEngine) {
-        if (behaviorTree == null || executionStack.isEmpty()) {
-            return;
-        }
-
-        // Continue execution from where we left off
-        BehaviorNode.Status result = executeStep(gameEngine);
+        if (behaviorTree == null) return;
         
-        // Update current node based on the top of the stack
-        if (!executionStack.isEmpty()) {
-            currentNode = executionStack.peek().node;
-        } else {
-            // Tree execution finished, restart from root
-            currentNode = behaviorTree;
-            executionStack.push(new ExecutionContext(behaviorTree));
-        }
+        // Start from root and traverse until we find one action to execute
+        currentNode = behaviorTree;
+        executeNodeRecursively(behaviorTree, gameEngine, true);
     }
 
-    private BehaviorNode.Status executeStep(GameEngine gameEngine) {
-        if (executionStack.isEmpty()) {
-            return BehaviorNode.Status.FAILURE;
-        }
-
-        ExecutionContext context = executionStack.peek();
-        BehaviorNode node = context.node;
-
+    private BehaviorNode.Status executeNodeRecursively(BehaviorNode node, GameEngine gameEngine, boolean stopAfterFirstAction) {
+        currentNode = node;
+        
         if (node instanceof FallbackNode) {
-            return executeFallback((FallbackNode) node, context, gameEngine);
+            return executeFallback((FallbackNode) node, gameEngine, stopAfterFirstAction);
         } else if (node instanceof SequenceNode) {
-            return executeSequence((SequenceNode) node, context, gameEngine);
+            return executeSequence((SequenceNode) node, gameEngine, stopAfterFirstAction);
         } else if (node instanceof ParallelNode) {
-            return executeParallel((ParallelNode) node, context, gameEngine);
+            return executeParallel((ParallelNode) node, gameEngine, stopAfterFirstAction);
         } else if (node instanceof ConditionNode) {
             return executeCondition((ConditionNode) node, gameEngine);
         } else if (node instanceof ActionNode) {
             return executeAction((ActionNode) node, gameEngine);
         }
-
+        
         return BehaviorNode.Status.FAILURE;
     }
 
-    private BehaviorNode.Status executeFallback(FallbackNode node, ExecutionContext context, GameEngine gameEngine) {
-        if (!context.hasEntered) {
-            System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " ENTRY");
-            context.hasEntered = true;
-        }
-
+    private BehaviorNode.Status executeFallback(FallbackNode node, GameEngine gameEngine, boolean stopAfterFirstAction) {
+        System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " ENTRY");
+        
         List<BehaviorNode> children = node.getChildren();
         
-        while (context.childIndex < children.size()) {
-            BehaviorNode child = children.get(context.childIndex);
-            
-            // Push child onto stack if not already there
-            if (executionStack.peek() == context) {
-                executionStack.push(new ExecutionContext(child));
-            }
-            
-            BehaviorNode.Status childStatus = executeStep(gameEngine);
+        for (BehaviorNode child : children) {
+            BehaviorNode.Status childStatus = executeNodeRecursively(child, gameEngine, stopAfterFirstAction);
             
             if (childStatus == BehaviorNode.Status.SUCCESS) {
                 System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " SUCCESS");
-                executionStack.pop(); // Remove this context
                 return BehaviorNode.Status.SUCCESS;
-            } else if (childStatus == BehaviorNode.Status.FAILURE) {
-                context.childIndex++;
-                // Child context already popped in recursive call
-            } else { // RUNNING
+            } else if (childStatus == BehaviorNode.Status.RUNNING) {
                 return BehaviorNode.Status.RUNNING;
             }
+            // Continue to next child on FAILURE
         }
-
+        
         System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " FAILURE");
-        executionStack.pop(); // Remove this context
         return BehaviorNode.Status.FAILURE;
     }
 
-    private BehaviorNode.Status executeSequence(SequenceNode node, ExecutionContext context, GameEngine gameEngine) {
-        if (!context.hasEntered) {
-            System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " ENTRY");
-            context.hasEntered = true;
-        }
-
+    private BehaviorNode.Status executeSequence(SequenceNode node, GameEngine gameEngine, boolean stopAfterFirstAction) {
+        System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " ENTRY");
+        
         List<BehaviorNode> children = node.getChildren();
         
-        while (context.childIndex < children.size()) {
-            BehaviorNode child = children.get(context.childIndex);
-            
-            // Push child onto stack if not already there
-            if (executionStack.peek() == context) {
-                executionStack.push(new ExecutionContext(child));
-            }
-            
-            BehaviorNode.Status childStatus = executeStep(gameEngine);
+        for (BehaviorNode child : children) {
+            BehaviorNode.Status childStatus = executeNodeRecursively(child, gameEngine, stopAfterFirstAction);
             
             if (childStatus == BehaviorNode.Status.FAILURE) {
                 System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " FAILURE");
-                executionStack.pop(); // Remove this context
                 return BehaviorNode.Status.FAILURE;
-            } else if (childStatus == BehaviorNode.Status.SUCCESS) {
-                context.childIndex++;
-                // Child context already popped in recursive call
-            } else { // RUNNING
+            } else if (childStatus == BehaviorNode.Status.RUNNING) {
                 return BehaviorNode.Status.RUNNING;
             }
+            // Continue to next child on SUCCESS
         }
-
+        
         System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " SUCCESS");
-        executionStack.pop(); // Remove this context
         return BehaviorNode.Status.SUCCESS;
     }
 
-    private BehaviorNode.Status executeParallel(ParallelNode node, ExecutionContext context, GameEngine gameEngine) {
-        if (!context.hasEntered) {
-            System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " ENTRY");
-            context.hasEntered = true;
-        }
-
+    private BehaviorNode.Status executeParallel(ParallelNode node, GameEngine gameEngine, boolean stopAfterFirstAction) {
+        System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " ENTRY");
+        
         List<BehaviorNode> children = node.getChildren();
         int successCount = 0;
-
+        
         for (BehaviorNode child : children) {
-            executionStack.push(new ExecutionContext(child));
-            BehaviorNode.Status childStatus = executeStep(gameEngine);
+            BehaviorNode.Status childStatus = executeNodeRecursively(child, gameEngine, stopAfterFirstAction);
             if (childStatus == BehaviorNode.Status.SUCCESS) {
                 successCount++;
             }
         }
-
+        
         BehaviorNode.Status result = successCount >= node.getSuccessThreshold() ? 
             BehaviorNode.Status.SUCCESS : BehaviorNode.Status.FAILURE;
         System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " " + result);
-        executionStack.pop(); // Remove this context
         return result;
     }
 
     private BehaviorNode.Status executeCondition(ConditionNode node, GameEngine gameEngine) {
         BehaviorNode.Status status = node.execute(this, gameEngine);
         System.out.println(id + " " + node.getId() + " " + node.getName() + " " + status);
-        executionStack.pop(); // Remove this context
         return status;
     }
 
     private BehaviorNode.Status executeAction(ActionNode node, GameEngine gameEngine) {
         BehaviorNode.Status status = node.execute(this, gameEngine);
         System.out.println(id + " " + node.getId() + " " + node.getName() + " " + status);
-        gameEngine.printBoard();
-        executionStack.pop(); // Remove this context
         return status;
     }
 }
