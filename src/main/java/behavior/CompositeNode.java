@@ -30,4 +30,5 @@ public abstract class CompositeNode extends BehaviorNode {
 
     public int getCurrentChildIndex() {
         return currentChildIndex;
-    }}
+    }
+}

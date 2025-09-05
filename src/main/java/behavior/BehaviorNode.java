@@ -26,7 +26,7 @@ public abstract class BehaviorNode {
         SUCCESS, FAILURE, RUNNING
     }
 
-    /** Execute the node’s behavior. */
+    /** Execute the node's behavior. */
     public abstract Status execute(Ladybug ladybug, GameEngine gameEngine);
 
     /** Reset any state (for composites). */

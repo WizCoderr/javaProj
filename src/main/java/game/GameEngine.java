@@ -53,6 +53,7 @@ public class GameEngine {
             ladybug.setBehaviorTree(null, new HashMap<>(), new HashMap<>()); // Clear existing tree
         }
 
+        // Only load trees for the first N ladybugs where N = paths.size()
         for (int i = 0; i < paths.size(); i++) {
             List<String> treeLines = Files.readAllLines(Path.of(paths.get(i)));
             for (String row : treeLines) {
@@ -64,6 +65,13 @@ public class GameEngine {
             Map<BehaviorNode, CompositeNode> childToParentMap = new HashMap<>();
             BehaviorNode root = parser.parse(Path.of(paths.get(i)), nodeMap, childToParentMap, this);
             ladybugs.get(i).setBehaviorTree(root, nodeMap, childToParentMap);
+        }
+
+        // Remove ladybugs that don't have trees assigned
+        for (int i = ladybugs.size() - 1; i >= paths.size(); i--) {
+            Ladybug ladybug = ladybugs.get(i);
+            gameBoard.setCell(ladybug.getX(), ladybug.getY(), '.');
+            ladybugs.remove(i);
         }
     }
 
@@ -77,12 +85,11 @@ public class GameEngine {
             return;
         }
 
-        // Execute each ladybug in order - REMOVED printBoard() call
+        // Execute each ladybug in order
         for (Ladybug ladybug : ladybugs) {
             if (ladybug.getBehaviorTree() != null) {
                 try {
                     ladybug.executeNext(this);
-                    printBoard();
                 } catch (Exception e) {
                     System.out.println("Error: An unexpected error occurred for Ladybug "
                         + ladybug.getId() + ": " + e.getMessage());
@@ -112,12 +119,12 @@ public class GameEngine {
     }
 
     private boolean isLadybugChar(char c) {
-        return c == '^' || c == '>' || c == 'v' || c == '<';  // Fixed characters
+        return c == '^' || c == '>' || c == 'v' || c == '<';
     }
 
     public boolean turn(Ladybug ladybug, boolean isRight) {
         char currentDir = ladybug.getDirection();
-        String dirs = "^>v<";  // Fixed characters
+        String dirs = "^>v<";
         int index = dirs.indexOf(currentDir);
         int newIndex = isRight ? (index + 1) % 4 : (index + 3) % 4;
         char newDir = dirs.charAt(newIndex);
@@ -134,9 +141,9 @@ public class GameEngine {
 
         switch (ladybug.getDirection()) {
             case '^': nextY--; break;
-            case '>': nextX++; break;  // Fixed characters
+            case '>': nextX++; break;
             case 'v': nextY++; break;
-            case '<': nextX--; break;  // Fixed characters
+            case '<': nextX--; break;
             default: return false;
         }
 
@@ -173,7 +180,7 @@ public class GameEngine {
         char newDirection;
         
         if (Math.abs(deltaX) >= Math.abs(deltaY)) {
-            newDirection = deltaX > 0 ? '>' : '<';  // Fixed characters
+            newDirection = deltaX > 0 ? '>' : '<';
         } else {
             newDirection = deltaY > 0 ? 'v' : '^';
         }
@@ -190,9 +197,9 @@ public class GameEngine {
         
         switch (ladybug.getDirection()) {
             case '^': nextY--; break;
-            case '>': nextX++; break;  // Fixed characters
+            case '>': nextX++; break;
             case 'v': nextY++; break;
-            case '<': nextX--; break;  // Fixed characters
+            case '<': nextX--; break;
             default: return false;
         }
         
@@ -211,9 +218,9 @@ public class GameEngine {
         
         switch (ladybug.getDirection()) {
             case '^': nextY--; break;
-            case '>': nextX++; break;  // Fixed characters
+            case '>': nextX++; break;
             case 'v': nextY++; break;
-            case '<': nextX--; break;  // Fixed characters
+            case '<': nextX--; break;
             default: return false;
         }
         
@@ -232,9 +239,9 @@ public class GameEngine {
         
         switch (ladybug.getDirection()) {
             case '^': nextY--; break;
-            case '>': nextX++; break;  // Fixed characters
+            case '>': nextX++; break;
             case 'v': nextY++; break;
-            case '<': nextX--; break;  // Fixed characters
+            case '<': nextX--; break;
             default: break;
         }
         
