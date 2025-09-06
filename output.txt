@@ -1,0 +1,128 @@
+> Task :compileJava UP-TO-DATE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+
+> Task :run
+..#...*...
+..#...##..
+..#..^...*
+..####....
+.*.>..#...
+....o...v.
+flowchart TD
+A[?] --> B[->]
+A --> C[=1>]
+B --> D([treeFront])
+B --> E[turnLeft]
+C --> F[takeLeaf]
+C --> G[move]
+C --> H[->]
+H --> I([atEdge])
+H --> J[turnRight]
+flowchart TD
+A[=1>] --> B[turnRight]
+A --> C[move]
+1 2
+(6,3)
+1 A fallback ENTRY
+1 C parallel ENTRY
+1 F takeLeaf FAILURE
+1 C parallel FAILURE
+1 A fallback FAILURE
++----------+
+|..#...*...|
+|..#...##..|
+|..#..^...*|
+|..####....|
+|.*.>..#...|
+|....o.....|
++----------+
+2 A parallel ENTRY
+2 C move SUCCESS
+2 A parallel SUCCESS
++----------+
+|..#...*...|
+|..#...##..|
+|..#..^...*|
+|..####....|
+|.*..>.#...|
+|....o.....|
++----------+
+1 A fallback ENTRY
+1 C parallel ENTRY
+1 F takeLeaf FAILURE
+1 C parallel FAILURE
+1 A fallback FAILURE
++----------+
+|..#...*...|
+|..#...##..|
+|..#..^...*|
+|..####....|
+|.*..>.#...|
+|....o.....|
++----------+
+2 A parallel ENTRY
+2 C move SUCCESS
+2 A parallel SUCCESS
++----------+
+|..#...*...|
+|..#...##..|
+|..#..^...*|
+|..####....|
+|.*...>#...|
+|....o.....|
++----------+
+1 A fallback ENTRY
+1 C parallel ENTRY
+1 F takeLeaf FAILURE
+1 C parallel FAILURE
+1 A fallback FAILURE
++----------+
+|..#...*...|
+|..#...##..|
+|..#..^...*|
+|..####....|
+|.*...>#...|
+|....o.....|
++----------+
+2 A parallel ENTRY
+2 C move FAILURE
+2 A parallel FAILURE
++----------+
+|..#...*...|
+|..#...##..|
+|..#..^...*|
+|..####....|
+|.*...>#...|
+|....o.....|
++----------+
+(6,3)
+F
+OK
+1 A fallback ENTRY
+1 C parallel ENTRY
+1 F takeLeaf FAILURE
+1 C parallel FAILURE
+1 A fallback FAILURE
++----------+
+|..#...*...|
+|..#...##..|
+|..#..^...*|
+|..####....|
+|.*...>#...|
+|....o.....|
++----------+
+2 A parallel ENTRY
+2 C move FAILURE
+2 A parallel FAILURE
++----------+
+|..#...*...|
+|..#...##..|
+|..#..^...*|
+|..####....|
+|.*...>#...|
+|....o.....|
++----------+
+
+BUILD SUCCESSFUL in 2s
+2 actionable tasks: 1 executed, 1 up-to-date

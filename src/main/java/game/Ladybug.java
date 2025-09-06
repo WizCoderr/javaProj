@@ -23,7 +23,7 @@ public class Ladybug {
     private BehaviorNode currentNode;
     private Map<String, BehaviorNode> nodeMap;
     private Map<BehaviorNode, CompositeNode> childToParentMap;
-    private boolean actionExecuted; // Flag to stop after first action
+    private boolean actionExecuted;
 
     public Ladybug(int id, int x, int y, char direction) {
         this.id = id;
@@ -93,13 +93,6 @@ public class Ladybug {
         return true;
     }
 
-    private String getDisplayType(BehaviorNode node) {
-        if (node instanceof FallbackNode) return "fallback";
-        if (node instanceof SequenceNode) return "sequence";  
-        if (node instanceof ParallelNode) return "parallel";
-        return node.getName();
-    }
-
     /**
      * Executes behavior tree step by step until one action is performed.
      */
@@ -115,121 +108,100 @@ public class Ladybug {
     }
 
     private BehaviorNode.Status executeNodeRecursively(BehaviorNode node, GameEngine gameEngine) {
-        if (actionExecuted) {
-            return BehaviorNode.Status.RUNNING; // Stop execution after first action
-        }
-        
         currentNode = node;
         
-        if (node instanceof FallbackNode) {
+        if (node instanceof ActionNode) {
+            return executeAction((ActionNode) node, gameEngine);
+        } else if (node instanceof ConditionNode) {
+            return executeCondition((ConditionNode) node, gameEngine);
+        } else if (node instanceof FallbackNode) {
             return executeFallback((FallbackNode) node, gameEngine);
         } else if (node instanceof SequenceNode) {
             return executeSequence((SequenceNode) node, gameEngine);
         } else if (node instanceof ParallelNode) {
             return executeParallel((ParallelNode) node, gameEngine);
-        } else if (node instanceof ConditionNode) {
-            return executeCondition((ConditionNode) node, gameEngine);
-        } else if (node instanceof ActionNode) {
-            return executeAction((ActionNode) node, gameEngine);
         }
         
         return BehaviorNode.Status.FAILURE;
     }
 
     private BehaviorNode.Status executeFallback(FallbackNode node, GameEngine gameEngine) {
-        if (actionExecuted) return BehaviorNode.Status.RUNNING;
-        
-        System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " ENTRY");
+        System.out.println(id + " " + node.getId() + " fallback ENTRY");
         
         List<BehaviorNode> children = node.getChildren();
         
         for (BehaviorNode child : children) {
-            if (actionExecuted) break;
+            if (actionExecuted) {
+                break;
+            }
             
             BehaviorNode.Status childStatus = executeNodeRecursively(child, gameEngine);
             
             if (childStatus == BehaviorNode.Status.SUCCESS) {
-                System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " SUCCESS");
+                System.out.println(id + " " + node.getId() + " fallback SUCCESS");
                 return BehaviorNode.Status.SUCCESS;
-            } else if (childStatus == BehaviorNode.Status.RUNNING) {
-                return BehaviorNode.Status.RUNNING;
             }
             // Continue to next child on FAILURE
         }
         
-        if (!actionExecuted) {
-            System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " FAILURE");
-        }
-        return actionExecuted ? BehaviorNode.Status.RUNNING : BehaviorNode.Status.FAILURE;
+        System.out.println(id + " " + node.getId() + " fallback FAILURE");
+        return BehaviorNode.Status.FAILURE;
     }
 
     private BehaviorNode.Status executeSequence(SequenceNode node, GameEngine gameEngine) {
-        if (actionExecuted) return BehaviorNode.Status.RUNNING;
-        
-        System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " ENTRY");
+        System.out.println(id + " " + node.getId() + " sequence ENTRY");
         
         List<BehaviorNode> children = node.getChildren();
         
         for (BehaviorNode child : children) {
-            if (actionExecuted) break;
+            if (actionExecuted) {
+                break;
+            }
             
             BehaviorNode.Status childStatus = executeNodeRecursively(child, gameEngine);
             
             if (childStatus == BehaviorNode.Status.FAILURE) {
-                System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " FAILURE");
+                System.out.println(id + " " + node.getId() + " sequence FAILURE");
                 return BehaviorNode.Status.FAILURE;
-            } else if (childStatus == BehaviorNode.Status.RUNNING) {
-                return BehaviorNode.Status.RUNNING;
             }
             // Continue to next child on SUCCESS
         }
         
-        if (!actionExecuted) {
-            System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " SUCCESS");
-        }
-        return actionExecuted ? BehaviorNode.Status.RUNNING : BehaviorNode.Status.SUCCESS;
+        System.out.println(id + " " + node.getId() + " sequence SUCCESS");
+        return BehaviorNode.Status.SUCCESS;
     }
 
     private BehaviorNode.Status executeParallel(ParallelNode node, GameEngine gameEngine) {
-        if (actionExecuted) return BehaviorNode.Status.RUNNING;
-        
-        System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " ENTRY");
+        System.out.println(id + " " + node.getId() + " parallel ENTRY");
         
         List<BehaviorNode> children = node.getChildren();
         int successCount = 0;
         
         for (BehaviorNode child : children) {
-            if (actionExecuted) break;
+            if (actionExecuted) {
+                break;
+            }
             
             BehaviorNode.Status childStatus = executeNodeRecursively(child, gameEngine);
             if (childStatus == BehaviorNode.Status.SUCCESS) {
                 successCount++;
             }
-            
-            // For parallel, we continue executing all children even if action was executed
-            // but we don't print more output
         }
         
         BehaviorNode.Status result = successCount >= node.getSuccessThreshold() ? 
             BehaviorNode.Status.SUCCESS : BehaviorNode.Status.FAILURE;
             
-        if (!actionExecuted) {
-            System.out.println(id + " " + node.getId() + " " + getDisplayType(node) + " " + result);
-        }
-        return actionExecuted ? BehaviorNode.Status.RUNNING : result;
+        System.out.println(id + " " + node.getId() + " parallel " + result);
+        return result;
     }
 
     private BehaviorNode.Status executeCondition(ConditionNode node, GameEngine gameEngine) {
-        if (actionExecuted) return BehaviorNode.Status.RUNNING;
-        
         BehaviorNode.Status status = node.execute(this, gameEngine);
         System.out.println(id + " " + node.getId() + " " + node.getName() + " " + status);
         return status;
     }
 
     private BehaviorNode.Status executeAction(ActionNode node, GameEngine gameEngine) {
-        if (actionExecuted) return BehaviorNode.Status.RUNNING;
-        
         BehaviorNode.Status status = node.execute(this, gameEngine);
         System.out.println(id + " " + node.getId() + " " + node.getName() + " " + status);
         

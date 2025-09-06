@@ -67,6 +67,6 @@ public class ConditionNode extends BehaviorNode {
 
   @Override
   public String getType() {
-    return this.condition;
+    return "condition";
   }
 }

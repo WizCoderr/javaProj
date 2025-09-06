@@ -85,11 +85,12 @@ public class GameEngine {
             return;
         }
 
-        // Execute each ladybug in order - only first action execution per ladybug
+        // Execute each ladybug in order
         for (Ladybug ladybug : ladybugs) {
             if (ladybug.getBehaviorTree() != null) {
                 try {
                     ladybug.executeNext(this);
+                    // Print board after each ladybug's execution
                     printBoard();
                 } catch (Exception e) {
                     System.out.println("Error: An unexpected error occurred for Ladybug "

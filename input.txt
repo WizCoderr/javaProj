@@ -1,0 +1,12 @@
+load board exampleBoard.txt
+load trees exampleTree.txt spinner.txt
+list ladybugs
+print position 1
+next action
+next action
+next action
+print position 1
+head 1
+add sibling 1 J K[turnLeft]
+next action
+quit
