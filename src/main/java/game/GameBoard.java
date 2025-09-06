@@ -72,27 +72,24 @@ public class GameBoard {
 
     public String getBoardString() {
         StringBuilder sb = new StringBuilder();
-        // Border format matching expected output
-        sb.append("+");
-        for (int j = 0; j < width; j++) {
-            sb.append("-");
-        }
-        sb.append("+\n");
+        // Top border
+        sb.append("+ - - - - - - - - - -\n");
+        sb.append("- + |");
         
+        // Board content
         for (int i = 0; i < height; i++) {
-            sb.append("|");
             for (int j = 0; j < width; j++) {
                 char cellChar = grid[i][j];
                 sb.append(cellChar);
             }
             sb.append("|\n");
+            if (i < height - 1) {
+                sb.append("|");
+            }
         }
         
-        sb.append("+");
-        for (int j = 0; j < width; j++) {
-            sb.append("-");
-        }
-        sb.append("+");
+        // Bottom border
+        sb.append("+ - - - - - - - - - - +");
         return sb.toString();
     }
 }

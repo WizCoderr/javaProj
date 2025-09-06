@@ -16,14 +16,12 @@ public class Ladybug {
     private BehaviorNode currentNode;
     private Map<String, BehaviorNode> nodeMap;
     private Map<BehaviorNode, CompositeNode> childToParentMap;
-    private ExecutionContext context;
 
     public Ladybug(int id, int x, int y, char direction) {
         this.id = id;
         this.x = x;
         this.y = y;
         this.direction = direction;
-        this.context = new ExecutionContext();
     }
 
     public int getId() { return id; }
@@ -54,7 +52,6 @@ public class Ladybug {
         if (behaviorTree != null) {
             behaviorTree.reset();
             currentNode = behaviorTree;
-            context.reset();
         }
     }
 
@@ -95,95 +92,108 @@ public class Ladybug {
     }
 
     public void executeNext(GameEngine gameEngine) {
-        if (behaviorTree == null) return;
-        
-        context.reset();
-        executeNodeWithTrace(behaviorTree, gameEngine, true);
-    }
-
-    private BehaviorNode.Status executeNodeWithTrace(BehaviorNode node, GameEngine gameEngine, boolean isRoot) {
-        currentNode = node;
-        
-        if (node instanceof FallbackNode) {
-            return executeFallbackWithTrace((FallbackNode) node, gameEngine);
-        } else if (node instanceof SequenceNode) {
-            return executeSequenceWithTrace((SequenceNode) node, gameEngine);
-        } else if (node instanceof ParallelNode) {
-            return executeParallelWithTrace((ParallelNode) node, gameEngine);
-        } else if (node instanceof ActionNode) {
-            BehaviorNode.Status status = node.execute(this, gameEngine);
-            System.out.println(id + " " + node.getId() + " " + node.getName() + " " + status);
-            context.actionExecuted = true;
-            return status;
-        } else if (node instanceof ConditionNode) {
-            BehaviorNode.Status status = node.execute(this, gameEngine);
-            System.out.println(id + " " + node.getId() + " " + node.getName() + " " + status);
-            return status;
+        if (behaviorTree == null) {
+            return;
         }
         
-        return BehaviorNode.Status.FAILURE;
+        // Always start from root and execute once per cycle
+        executeNode(behaviorTree, gameEngine);
     }
 
-    private BehaviorNode.Status executeFallbackWithTrace(FallbackNode node, GameEngine gameEngine) {
-        System.out.println(id + " " + node.getId() + " fallback ENTRY");
+    private BehaviorNode.Status executeNode(BehaviorNode node, GameEngine gameEngine) {
+        String nodeType = getNodeTypeName(node);
         
+        BehaviorNode.Status status;
+        
+        if (node instanceof FallbackNode) {
+            // Print compact format: "1 A fallback ENTRY 1 B"
+            FallbackNode fallback = (FallbackNode) node;
+            if (!fallback.getChildren().isEmpty()) {
+                System.out.println(id + " " + node.getId() + " " + nodeType + " ENTRY " + id + " " + 
+                    fallback.getChildren().get(0).getId());
+            }
+            status = executeFallbackNode(fallback, gameEngine);
+        } else if (node instanceof SequenceNode) {
+            // Print compact format: "sequence ENTRY 1 D"
+            SequenceNode sequence = (SequenceNode) node;
+            if (!sequence.getChildren().isEmpty()) {
+                System.out.println(nodeType + " ENTRY " + id + " " + 
+                    sequence.getChildren().get(0).getId());
+            }
+            status = executeSequenceNode(sequence, gameEngine);
+        } else if (node instanceof ParallelNode) {
+            // Print compact format: "parallel ENTRY 1 F"
+            ParallelNode parallel = (ParallelNode) node;
+            if (!parallel.getChildren().isEmpty()) {
+                System.out.println(nodeType + " ENTRY " + id + " " + 
+                    parallel.getChildren().get(0).getId());
+            }
+            status = executeParallelNode(parallel, gameEngine);
+        } else if (node instanceof ConditionNode) {
+            status = ((ConditionNode) node).execute(this, gameEngine);
+            // Print condition name and status: "treeFront FAILURE 1 B"
+            String conditionName = node.getName(); // Get actual condition name
+            System.out.println(conditionName + " " + status + " " + id + " " + node.getId());
+        } else if (node instanceof ActionNode) {
+            status = ((ActionNode) node).execute(this, gameEngine);
+            // Print action name and status: "takeLeaf FAILURE"
+            String actionName = node.getName(); // Get actual action name
+            System.out.println(actionName + " " + status);
+        } else {
+            status = BehaviorNode.Status.FAILURE;
+        }
+        
+        return status;
+    }
+
+    private BehaviorNode.Status executeFallbackNode(FallbackNode node, GameEngine gameEngine) {
         for (BehaviorNode child : node.getChildren()) {
-            if (context.actionExecuted) break;
-            
-            BehaviorNode.Status childStatus = executeNodeWithTrace(child, gameEngine, false);
-            
+            BehaviorNode.Status childStatus = executeNode(child, gameEngine);
             if (childStatus == BehaviorNode.Status.SUCCESS) {
-                System.out.println(id + " " + node.getId() + " fallback SUCCESS");
                 return BehaviorNode.Status.SUCCESS;
             }
         }
-        
-        System.out.println(id + " " + node.getId() + " fallback FAILURE");
         return BehaviorNode.Status.FAILURE;
     }
 
-    private BehaviorNode.Status executeSequenceWithTrace(SequenceNode node, GameEngine gameEngine) {
-        System.out.println(id + " " + node.getId() + " sequence ENTRY");
-        
+    private BehaviorNode.Status executeSequenceNode(SequenceNode node, GameEngine gameEngine) {
         for (BehaviorNode child : node.getChildren()) {
-            if (context.actionExecuted) break;
-            
-            BehaviorNode.Status childStatus = executeNodeWithTrace(child, gameEngine, false);
-            
-            if (childStatus == BehaviorNode.Status.FAILURE) {
-                System.out.println(id + " " + node.getId() + " sequence FAILURE");
-                return BehaviorNode.Status.FAILURE;
+            BehaviorNode.Status childStatus = executeNode(child, gameEngine);
+            if (childStatus != BehaviorNode.Status.SUCCESS) {
+                return childStatus; // Return FAILURE or RUNNING
             }
         }
-        
-        System.out.println(id + " " + node.getId() + " sequence SUCCESS");
         return BehaviorNode.Status.SUCCESS;
     }
 
-    private BehaviorNode.Status executeParallelWithTrace(ParallelNode node, GameEngine gameEngine) {
-        System.out.println(id + " " + node.getId() + " parallel ENTRY");
-        
+    private BehaviorNode.Status executeParallelNode(ParallelNode node, GameEngine gameEngine) {
         int successCount = 0;
+        int failureCount = 0;
+        
         for (BehaviorNode child : node.getChildren()) {
-            if (context.actionExecuted) break;
-            
-            if (executeNodeWithTrace(child, gameEngine, false) == BehaviorNode.Status.SUCCESS) {
+            BehaviorNode.Status childStatus = executeNode(child, gameEngine);
+            if (childStatus == BehaviorNode.Status.SUCCESS) {
                 successCount++;
+            } else if (childStatus == BehaviorNode.Status.FAILURE) {
+                failureCount++;
             }
         }
         
-        BehaviorNode.Status result = successCount >= node.getSuccessThreshold() ? 
-            BehaviorNode.Status.SUCCESS : BehaviorNode.Status.FAILURE;
-            
-        System.out.println(id + " " + node.getId() + " parallel " + result);
-        return result;
+        if (successCount >= node.getSuccessThreshold()) {
+            return BehaviorNode.Status.SUCCESS;
+        }
+        if (failureCount > (node.getChildren().size() - node.getSuccessThreshold())) {
+            return BehaviorNode.Status.FAILURE;
+        }
+        return BehaviorNode.Status.RUNNING;
     }
 
-    private static class ExecutionContext {
-        boolean actionExecuted = false;
-        
-        void reset() {
-            actionExecuted = false;
-        }
+    private String getNodeTypeName(BehaviorNode node) {
+        if (node instanceof FallbackNode) return "fallback";
+        if (node instanceof SequenceNode) return "sequence";
+        if (node instanceof ParallelNode) return "parallel";
+        if (node instanceof ConditionNode) return "condition";
+        if (node instanceof ActionNode) return "action";
+        return "unknown";
     }
 }
